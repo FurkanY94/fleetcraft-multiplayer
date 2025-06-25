@@ -97,9 +97,10 @@
   <h1>Fleetcraft</h1>
   <h3>Filonu kur, denizlere hakim ol!</h3>
 
-  <div id="startScreen" style="padding:20px; background:#fff; border:1px solid #aaa; border-radius:8px; max-width:600px; margin:60px auto; text-align:center; display: none;">
+    <div id="startScreen" style="padding:20px; background:#fff; border:1px solid #aaa; border-radius:8px; max-width:600px; margin:60px auto; text-align:center; display: none;">
     <h2>🛳 Başlangıç Tersaneni Seç</h2>
     <div id="portOptions" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top:20px;"></div>
+  </div>
   </div>
 
   <div id="map"></div>
@@ -109,7 +110,12 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
+   const startPorts = {
+  "İstanbul": [41.0082, 28.9784],
+  "Napoli": [40.8518, 14.2681],
+  "Marsilya": [43.2965, 5.3698],
+  "Barselona": [41.3851, 2.1734]
+};
 
    function showStartSelectionUI() {
       const screen = document.getElementById("startScreen");
@@ -632,10 +638,14 @@ window.onload = () => {
       updateShipStatus();
     }
 
-   window.onload = () => {
-  const savedPort = localStorage.getItem("fleetcraft_start_port");
-  if (!savedPort) {
-    showStartSelectionUI();
+      window.onload = () => {
+      const savedPort = localStorage.getItem("fleetcraft_start_port");
+      if (!savedPort) {
+        showStartSelectionUI();
+      } else {
+        initializeGame();
+      }
+    
   } else {
     initializeGame();
   }
