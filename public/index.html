@@ -1,1 +1,583 @@
+<!DOCTYPE html>
+<html lang="tr">
 
+<head>
+  <meta charset="UTF-8">
+  <title>Fleetcraft</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f0f0;
+      padding: 20px;
+    }
+
+    h1,
+    h2 {
+      color: #333;
+    }
+
+    button {
+      margin: 8px 4px;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #444;
+      color: white;
+    }
+
+    button:hover {
+      background-color: #222;
+    }
+
+    #map {
+      height: 500px;
+      margin-top: 20px;
+      border: 2px solid #444;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    #shipyard,
+    #missionPanel,
+    #orderList,
+    #travelOverlay,
+    #shipmentTracker,
+    #shipStatus,
+    #shipmentProgressPanel,
+    #shipmentDetailPanel,
+    #servicesPanel {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #e0e0e0;
+      border: 1px solid #999;
+      border-radius: 10px;
+      display: none;
+    }
+
+    #travelOverlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      color: white;
+      font-size: 24px;
+      text-align: center;
+      padding-top: 200px;
+      z-index: 999;
+      display: none;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .service-btn {
+      padding: 15px;
+      background-color: #555;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .service-btn:hover {
+      background-color: #333;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Fleetcraft</h1>
+  <h3>Filonu kur, denizlere hakim ol!</h3>
+
+  <div id="map"></div>
+
+  <div id="shipyard">
+    <h3 id="shipyardTitle"></h3>
+    <p id="shipyardContent"></p>
+    <button onclick="closeShipyard()">Tersaneyi Kapat</button>
+  </div>
+
+  <div id="orderList">
+    <h3>Sipariş Listesi</h3>
+    <div id="ordersContainer"></div>
+    <button onclick="closeOrders()">Kapat</button>
+  </div>
+
+  <div id="servicesPanel">
+    <h3 id="servicesTitle">Liman Hizmetleri</h3>
+    <div class="services-grid">
+      <button class="service-btn" onclick="refuelShip()">⛽ Yakıt İkmali<br>Maliyet: $500</button>
+      <button class="service-btn" onclick="restockFood()">🍞 Erzak İkmali<br>Maliyet: $300</button>
+      <button class="service-btn" onclick="repairShip()">🔧 Gemi Bakımı<br>Maliyet: $800</button>
+      <button class="service-btn" onclick="restCrew()">😴 Mürettebat Dinlenme<br>Maliyet: $200</button>
+    </div>
+    <p id="servicesStatus"></p>
+    <button onclick="closeServices()">Kapat</button>
+  </div>
+
+  <div id="missionPanel">
+    <h3>Aktif Görev</h3>
+    <p id="missionText">Henüz bir görev seçilmedi.</p>
+    <button id="startMissionBtn" onclick="startMission()">Göreve Başla</button>
+    <button id="completeBtn" onclick="completeMission()" style="display:none;">Görevi Tamamla</button>
+  </div>
+
+  <div id="shipmentTracker">
+    <h3>📦 Devam Eden Taşımalar</h3>
+    <ul id="shipmentList"></ul>
+  </div>
+
+  <div id="shipmentProgressPanel">
+    <h3>📍 Görev İlerlemesi</h3>
+    <p id="shipmentProgressText">Henüz aktif taşıma yok.</p>
+  </div>
+
+  <div id="shipmentDetailPanel">
+    <h3>🔍 Detaylı Görev Takibi</h3>
+    <p id="shipmentDetail"></p>
+  </div>
+
+  <div id="shipStatus">
+    <h3>🚢 Gemi Durumu</h3>
+    <p id="statusFuel"></p>
+    <p id="statusFood"></p>
+    <p id="statusCrewHealth"></p>
+    <p id="statusCrewMorale"></p>
+    <p id="statusMoney"></p>
+    <p id="statusShipDurability"></p>
+    <button onclick="openRepairPanel()">🔧 Bakım Yap</button>
+  </div>
+
+  <div id="repairPanel">
+    <h3>⚙️ Bakım ve Onarım</h3>
+    <p>Gemiyi tamir etmek ve mürettebat moralini yükseltmek için $500 harcayın.</p>
+    <button onclick="performRepair()">Onarımı Gerçekleştir</button>
+    <button onclick="closeRepairPanel()">Kapat</button>
+  </div>
+
+  <div id="travelOverlay">Yola çıkılıyor...⏳</div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function formatTime(totalMinutes) {
+      const totalSeconds = Math.floor(totalMinutes * 60);
+      const days = Math.floor(totalSeconds / (24 * 3600));
+      const hours = Math.floor((totalSeconds % (24 * 3600)) / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      if (days > 0) {
+        return `${days} gün ${hours} saat ${minutes} dk ${seconds} saniye`;
+      } else {
+        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }
+
+    const ports = [
+      {name: "İstanbul", lat: 41.0082, lon: 28.9784},
+      {name: "Napoli", lat: 40.8518, lon: 14.2681},
+      {name: "Marsilya", lat: 43.2965, lon: 5.3698},
+      {name: "Barselona", lat: 41.3851, lon: 2.1734},
+      {name: "İzmir", lat: 38.4192, lon: 27.1287},
+      {name: "Mersin", lat: 36.8121, lon: 34.6415},
+      {name: "Trabzon", lat: 41.0015, lon: 39.7178},
+      {name: "Antalya", lat: 36.8841, lon: 30.7056},
+      {name: "Atina", lat: 37.9838, lon: 23.7275}
+    ];
+
+    const cargoTypes = ["Gıda", "Elektronik", "Maden", "İlaç", "Kumaş", "Yakıt", "Kereste", "Demir"];
+    let unlockedShipyards = [];
+    let selectedStartPort = localStorage.getItem("fleetcraft_start_port");
+    let currentMission = null;
+    let shipments = [];
+    let fuel = 100;
+    let money = 10000;
+    let food = 100;
+    let crewHealth = 100;
+    let crewMorale = 100;
+    let currentLocation = selectedStartPort;
+    let shipDurability = 100;
+    let shipCapacity = 100;
+    let currentCargoLoad = 0;
+
+    const portUpgrades = {
+      "İstanbul": {baseCost: 1000},
+      "Napoli": {baseCost: 1200},
+      "Marsilya": {baseCost: 1400},
+      "Barselona": {baseCost: 1600},
+      "İzmir": {baseCost: 1800},
+      "Mersin": {baseCost: 2000},
+      "Trabzon": {baseCost: 2200},
+      "Antalya": {baseCost: 2400},
+      "Atina": {baseCost: 2600}
+    };
+
+    function getUpgradeCost(portName) {
+      const base = portUpgrades[portName]?.baseCost || 1000;
+      const multiplier = 1 + (Math.floor(shipCapacity / 100) * 0.5);
+      return Math.floor(base * multiplier);
+    }
+
+    function updateShipStatus() {
+      document.getElementById("shipStatus").style.display = "block";
+      document.getElementById("statusFuel").innerText = `⛽ Yakıt: ${fuel}/100`;
+      document.getElementById("statusFood").innerText = `🍞 Erzak: ${food}/100`;
+      document.getElementById("statusCrewHealth").innerText = `❤️ Sağlık: ${crewHealth}/100`;
+      document.getElementById("statusCrewMorale").innerText = `😊 Moral: ${crewMorale}/100`;
+      document.getElementById("statusMoney").innerText = `💰 Para: $${money}`;
+      document.getElementById("statusShipDurability").innerText = `🛠️ Dayanıklılık: ${shipDurability}`;
+      document.getElementById("statusShipCapacity").innerText = `📦 Yük: ${currentCargoLoad}/${shipCapacity}`;
+      document.getElementById("upgradeBtn").innerText = `📦 Kapasite Artır (+25)\nMaliyet: $${getUpgradeCost(currentLocation)}`;
+    }
+
+    function showStartSelection() {
+      const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
+      const selection = prompt("Başlangıç limanınızı seçin: " + startPorts.join(", "));
+      if (startPorts.includes(selection)) {
+        localStorage.setItem("fleetcraft_start_port", selection);
+        currentLocation = selection;
+        location.reload();
+      } else {
+        alert("Geçersiz seçim. Sayfa yenileniyor.");
+        location.reload();
+      }
+    }
+
+    function openRepairPanel() {
+      document.getElementById("repairPanel").style.display = "block";
+    }
+
+    function closeRepairPanel() {
+      document.getElementById("repairPanel").style.display = "none";
+    }
+
+    function performRepair() {
+      if (shipments.length > 0 && shipments[shipments.length - 1].remaining > 0) {
+        alert("Sefer sırasında bakım yapılamaz! Önce limana ulaşmalısınız.");
+        closeRepairPanel();
+        return;
+      }
+
+      if (money >= 500) {
+        money -= 500;
+        crewHealth = Math.min(crewHealth + 30, 100);
+        crewMorale = Math.min(crewMorale + 30, 100);
+        shipDurability = Math.min(shipDurability + 40, 100);
+        updateShipStatus();
+        alert("Bakım başarılı: Sağlık, moral ve dayanıklılık arttı.");
+      } else {
+        alert("Yetersiz bakiye! ($500 gerekli)");
+      }
+      closeRepairPanel();
+    }
+
+    function openServices(portName) {
+      if (currentLocation !== portName) {
+        alert("Bu hizmetlere sadece bulunduğunuz limandan erişebilirsiniz!");
+        return;
+      }
+
+      document.getElementById("servicesTitle").innerText = `${portName} Liman Hizmetleri`;
+      document.getElementById("servicesPanel").style.display = "block";
+      updateServicesStatus();
+    }
+
+    function updateServicesStatus() {
+      document.getElementById("servicesStatus").innerText = `Bulunduğu liman: ${currentLocation} | Para: $${money}`;
+    }
+
+    function refuelShip() {
+      if (money >= 500 && fuel < 100) {
+        const refuelAmount = Math.min(50, 100 - fuel);
+        fuel += refuelAmount;
+        money -= 500;
+        updateShipStatus();
+        updateServicesStatus();
+        alert(`${refuelAmount} birim yakıt ikmali yapıldı!`);
+      } else if (fuel >= 100) {
+        alert("Yakıt tankı dolu!");
+      } else {
+        alert("Yetersiz para!");
+      }
+    }
+
+    function restockFood() {
+      if (money >= 300 && food < 100) {
+        const foodAmount = Math.min(50, 100 - food);
+        food += foodAmount;
+        money -= 300;
+        updateShipStatus();
+        updateServicesStatus();
+        alert(`${foodAmount} birim erzak ikmali yapıldı!`);
+      } else if (food >= 100) {
+        alert("Erzak deposu dolu!");
+      } else {
+        alert("Yetersiz para!");
+      }
+    }
+
+    function repairShip() {
+      if (shipments.length > 0 && shipments[shipments.length - 1].remaining > 0) {
+        alert("Sefer sırasında bakım yapılamaz! Önce limana ulaşmalısınız.");
+        return;
+      }
+
+      if (money >= 800 && crewHealth < 100) {
+        crewHealth = Math.min(100, crewHealth + 30);
+        money -= 800;
+        updateShipStatus();
+        updateServicesStatus();
+        alert("Gemi bakımı tamamlandı! Mürettebat sağlığı iyileşti.");
+      } else if (crewHealth >= 100) {
+        alert("Gemi zaten iyi durumda!");
+      } else {
+        alert("Yetersiz para!");
+      }
+    }
+
+    function restCrew() {
+      if (shipments.length > 0 && shipments[shipments.length - 1].remaining > 0) {
+        alert("Sefer sırasında mürettebat dinlendirilmez! Önce limana ulaşmalısınız.");
+        return;
+      }
+
+      if (money >= 200 && crewMorale < 100) {
+        crewMorale = Math.min(100, crewMorale + 25);
+        money -= 200;
+        updateShipStatus();
+        updateServicesStatus();
+        alert("Mürettebat dinlendi! Moral yükseldi.");
+      } else if (crewMorale >= 100) {
+        alert("Mürettebat morali zaten yüksek!");
+      } else {
+        alert("Yetersiz para!");
+      }
+    }
+
+    function closeServices() {
+      document.getElementById("servicesPanel").style.display = "none";
+    }
+
+    function openOrders(portName) {
+      const orders = Array.from({length: 3}, () => {
+        const cargo = cargoTypes[Math.floor(Math.random() * cargoTypes.length)];
+        const sourcePorts = ports.filter(p => p.name !== portName);
+        const sourcePort = sourcePorts[Math.floor(Math.random() * sourcePorts.length)].name;
+        const destinationPort = portName;
+        const reward = Math.floor(Math.random() * 4000) + 3000;
+        const cargoSize = Math.floor(Math.random() * 20) + 10;
+        return {cargo, sourcePort, destinationPort, reward, cargoSize};
+      });
+
+      const container = document.getElementById("ordersContainer");
+      container.innerHTML = "";
+      orders.forEach((order, index) => {
+        const btn = document.createElement("button");
+        btn.textContent = `${order.cargo} toplama: ${order.sourcePort} → ${order.destinationPort} | Ödül: $${order.reward}`;
+        btn.onclick = () => {
+          currentMission = {...order};
+
+          if (order.cargoSize + currentCargoLoad > shipCapacity) {
+            alert("Bu görevi kabul edemezsiniz: Yük kapasitesini aşıyor!");
+            return;
+          }
+
+          const startPort = ports.find(p => p.name === currentLocation);
+          const sourcePort = ports.find(p => p.name === order.sourcePort);
+          const destPort = ports.find(p => p.name === order.destinationPort);
+
+          const distance1 = calculateDistance(startPort.lat, startPort.lon, sourcePort.lat, sourcePort.lon);
+          const distance2 = calculateDistance(sourcePort.lat, sourcePort.lon, destPort.lat, destPort.lon);
+          const totalDistance = distance1 + distance2;
+
+          const baseSpeed = 50;
+          const duration = (totalDistance / baseSpeed) * 60;
+          const fuelRequired = Math.ceil(totalDistance / 10);
+
+          document.getElementById("missionPanel").style.display = "block";
+          document.getElementById("missionText").innerText = `🚚 Görev: ${order.sourcePort}'dan ${order.cargo} alıp ${order.destinationPort}'a teslim et
+📏 Toplam Mesafe: ${Math.round(totalDistance)} km
+⛽ Gerekli Yakıt: ${fuelRequired} birim
+⏱️ Tahmini Süre: ${formatTime(duration)}
+💰 Ödül: $${order.reward}`;
+          document.getElementById("orderList").style.display = "none";
+        };
+        container.appendChild(btn);
+      });
+      document.getElementById("orderList").style.display = "block";
+    }
+
+    function closeOrders() {
+      document.getElementById("orderList").style.display = "none";
+    }
+
+    function startMission() {
+      if (!currentMission) return;
+
+      currentCargoLoad += currentMission.cargoSize;
+
+      const startPort = ports.find(p => p.name === currentLocation);
+      const sourcePort = ports.find(p => p.name === currentMission.sourcePort);
+      const distance1 = calculateDistance(startPort.lat, startPort.lon, sourcePort.lat, sourcePort.lon);
+
+      const destPort = ports.find(p => p.name === currentMission.destinationPort);
+      const distance2 = calculateDistance(sourcePort.lat, sourcePort.lon, destPort.lat, destPort.lon);
+
+      const totalDistance = distance1 + distance2;
+      const baseSpeed = 50;
+      const duration = Math.min(15 / 60, (totalDistance / baseSpeed) * 60);
+
+      document.getElementById("travelOverlay").style.display = "block";
+      setTimeout(() => {
+        document.getElementById("travelOverlay").style.display = "none";
+
+        currentMission.remaining = duration;
+        currentMission.total = duration;
+        currentMission.phase = "toSource";
+        shipments.push(currentMission);
+        updateShipmentProgress();
+        currentMission = null;
+        document.getElementById("missionPanel").style.display = "none";
+      }, 500);
+    }
+
+    function completeMission() {
+      if (!shipments.length) return;
+      currentCargoLoad = Math.max(0, currentCargoLoad - shipments[shipments.length - 1].cargoSize);
+    }
+
+    function upgradeCapacity() {
+      const cost = getUpgradeCost(currentLocation);
+      if (money >= cost) {
+        shipCapacity += 25;
+        money -= cost;
+        alert(`Gemi kapasitesi 25 birim artırıldı!`);
+        updateShipStatus();
+      } else {
+        alert(`Yetersiz bakiye! ($${cost} gerekli)`);
+      }
+    }
+
+    function updateShipmentProgress() {
+      const tracker = document.getElementById("shipmentProgressText");
+      const detail = document.getElementById("shipmentDetail");
+      document.getElementById("shipmentProgressPanel").style.display = "block";
+      document.getElementById("shipmentDetailPanel").style.display = "block";
+
+      if (shipments.length === 0) {
+        tracker.innerText = "Aktif taşıma yok.";
+        detail.innerText = "";
+        return;
+      }
+
+      const shipment = shipments[shipments.length - 1];
+      let remaining = shipment.remaining;
+      let total = shipment.total;
+
+      const interval = setInterval(() => {
+        remaining -= 1 / 60;
+        shipment.remaining = remaining;
+
+        const progressPercent = Math.floor(100 * (total - remaining) / total);
+        const lastProgressPercent = shipment.lastProgressPercent || 0;
+
+        if (progressPercent > lastProgressPercent) {
+          const progressDiff = progressPercent - lastProgressPercent;
+
+          fuel -= progressDiff;
+          if (fuel < 0) fuel = 0;
+
+          food -= progressDiff;
+          if (food < 0) food = 0;
+
+          crewMorale -= progressDiff;
+          if (crewMorale < 0) crewMorale = 0;
+
+          shipment.lastProgressPercent = progressPercent;
+        }
+
+        if (crewMorale < 30 && Math.random() < 0.1) {
+          crewHealth -= 1;
+          if (crewHealth < 0) crewHealth = 0;
+        }
+
+        let phaseText = "";
+        if (progressPercent < 50) {
+          phaseText = `${shipment.sourcePort}'a gidiyor`;
+        } else {
+          phaseText = `${shipment.cargo} yüklendi, ${shipment.destinationPort}'a gidiyor`;
+        }
+
+        tracker.innerText = `🕒 ${phaseText} | Kalan süre: ${formatTime(remaining)}`;
+        detail.innerText = `🧭 Konum: Açık deniz (%${progressPercent})\n⛽ Yakıt: ${fuel} | 🍞 Erzak: ${food} | ❤️ Sağlık: ${crewHealth} | 😊 Moral: ${crewMorale}`;
+        updateShipStatus();
+
+        if (remaining <= 0) {
+          clearInterval(interval);
+          tracker.innerText = `✅ ${shipment.destinationPort} varış tamamlandı.`;
+          detail.innerText = `🧭 Konum: ${shipment.destinationPort} Limanı\nTaşıma tamamlandı.`;
+          money += shipment.reward;
+          currentLocation = shipment.destinationPort;
+          updateShipStatus();
+        }
+      }, 1000);
+    }
+
+    function initializeGame() {
+      if (!selectedStartPort) {
+        showStartSelection();
+        return;
+      }
+
+      currentLocation = selectedStartPort;
+      unlockedShipyards.push(selectedStartPort);
+      const map = L.map('map', {
+        zoomControl: false,
+        scrollWheelZoom: false
+      }).setView([38.5, 25], 5);
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors & CARTO',
+        subdomains: 'abcd',
+        maxZoom: 10
+      }).addTo(map);
+
+      ports.forEach(port => {
+        const marker = L.marker([port.lat, port.lon]).addTo(map);
+        let popupContent = `<b>${port.name}</b><br>`;
+
+        if (currentLocation === port.name) {
+          popupContent += `<button onclick="openServices('${port.name}')">🔧 Liman Hizmetleri</button><br>`;
+        }
+
+        popupContent += `<button onclick="openOrders('${port.name}')">📋 Siparişleri Gör</button>`;
+        marker.bindPopup(popupContent);
+      });
+
+      updateShipStatus();
+    }
+
+    window.onload = initializeGame;
+  </script>
+</body>
+
+</html>
