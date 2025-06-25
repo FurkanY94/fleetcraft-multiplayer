@@ -96,6 +96,55 @@
 <body>
   <h1>Fleetcraft</h1>
   <h3>Filonu kur, denizlere hakim ol!</h3>
+<div id="startScreen" style="padding:20px; background:#fff; border:1px solid #aaa; border-radius:8px; max-width:600px; margin:60px auto; text-align:center; display: none;">
+  <h2>🛳 Başlangıç Tersaneni Seç</h2>
+  <div id="portOptions" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top:20px;">
+    <!-- Butonlar JavaScript ile eklenecek -->
+  </div>
+</div>
+
+<!-- 2. JavaScript: game.js ya da index.html <script> içine ekle -->
+<script>
+  const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
+
+  function showStartSelectionUI() {
+    const screen = document.getElementById("startScreen");
+    const options = document.getElementById("portOptions");
+    options.innerHTML = "";
+
+    startPorts.forEach(port => {
+      const btn = document.createElement("button");
+      btn.textContent = port;
+      btn.style.padding = "10px 20px";
+      btn.style.border = "none";
+      btn.style.borderRadius = "8px";
+      btn.style.backgroundColor = "#2d89ef";
+      btn.style.color = "white";
+      btn.style.cursor = "pointer";
+      btn.style.fontSize = "16px";
+
+      btn.onclick = () => {
+        localStorage.setItem("fleetcraft_start_port", port);
+        screen.style.display = "none";
+        initializeGame(); // Oyunu başlat
+      };
+
+      options.appendChild(btn);
+    });
+
+    screen.style.display = "block";
+  }
+
+  // Sayfa yüklendiğinde kontrol
+  window.onload = () => {
+    const savedPort = localStorage.getItem("fleetcraft_start_port");
+    if (!savedPort) {
+      showStartSelectionUI();
+    } else {
+      initializeGame();
+    }
+  }
+</script>
 
   <div id="map"></div>
 
