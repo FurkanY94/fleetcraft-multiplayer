@@ -111,7 +111,7 @@
   <script>
     const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
 
-    function showStartSelectionUI() {
+   function showStartSelectionUI() {
       const screen = document.getElementById("startScreen");
       const options = document.getElementById("portOptions");
       options.innerHTML = "";
@@ -138,15 +138,20 @@
 
       screen.style.display = "block";
     }
+// 🟨 OYUN BAŞLANGICINI GÖSTEREN YENİ TANIM
+function initializeGame() {
+  document.getElementById("map").innerText = "Oyun başlatıldı: " + localStorage.getItem("fleetcraft_start_port");
+}
 
-    window.onload = () => {
-      const savedPort = localStorage.getItem("fleetcraft_start_port");
-      if (!savedPort) {
-        showStartSelectionUI();
-      } else {
-        initializeGame();
-      }
-    }
+ // 🟧 SAYFA YÜKLENİRKEN LİMAN SEÇİMİNİ KONTROL EDEN BLOK
+window.onload = () => {
+  const savedPort = localStorage.getItem("fleetcraft_start_port");
+  if (!savedPort) {
+    showStartSelectionUI(); // Eğer liman seçilmediyse kullanıcıdan seçim al
+  } else {
+    initializeGame(); // Seçim yapıldıysa oyunu başlat
+  }
+}
   </script>
   <div id="map"></div>
 
