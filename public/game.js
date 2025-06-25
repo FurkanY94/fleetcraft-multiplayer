@@ -5,6 +5,34 @@ let crew = 3;
 function updateStatus() {
   document.getElementById("status").innerHTML = `⛽ Yakıt: ${fuel} | 👥 Mürettebat: ${crew} | 💰 Para: $${money}`;
 }
+const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
+
+function showStartSelectionUI() {
+  const screen = document.getElementById("startScreen");
+  const options = document.getElementById("portOptions");
+
+  startPorts.forEach(port => {
+    const btn = document.createElement("button");
+    btn.textContent = port;
+    btn.style.padding = "10px 20px";
+    btn.style.border = "none";
+    btn.style.borderRadius = "8px";
+    btn.style.backgroundColor = "#2d89ef";
+    btn.style.color = "white";
+    btn.style.cursor = "pointer";
+    btn.style.fontSize = "16px";
+
+    btn.onclick = () => {
+      localStorage.setItem("fleetcraft_start_port", port);
+      screen.style.display = "none";
+      initializeGame(); // oyun artık başlasın
+    };
+
+    options.appendChild(btn);
+  });
+
+  screen.style.display = "block";
+}
 
 function startNapoli() {
   fuel -= 30;
