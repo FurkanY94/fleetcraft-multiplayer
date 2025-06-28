@@ -311,18 +311,33 @@ window.onload = () => {
       document.getElementById("upgradeBtn").innerText = `📦 Kapasite Artır (+25)\nMaliyet: $${getUpgradeCost(currentLocation)}`;
     }
 
-    function showStartSelection() {
-      const startPorts = ["İstanbul", "Napoli", "Marsilya", "Barselona"];
-      const selection = prompt("Başlangıç limanınızı seçin: " + startPorts.join(", "));
-      if (startPorts.includes(selection)) {
-        localStorage.setItem("fleetcraft_start_port", selection);
-        currentLocation = selection;
-        location.reload();
-      } else {
-        alert("Geçersiz seçim. Sayfa yenileniyor.");
-        location.reload();
-      }
-    }
+  function showStartSelectionUI() {
+  const screen = document.getElementById("startScreen");
+  const options = document.getElementById("portOptions");
+  options.innerHTML = "";
+
+  for (const port in startPorts) {
+    const btn = document.createElement("button");
+    btn.textContent = port;
+    btn.style.padding = "10px 20px";
+    btn.style.border = "none";
+    btn.style.borderRadius = "8px";
+    btn.style.backgroundColor = "#2d89ef";
+    btn.style.color = "white";
+    btn.style.cursor = "pointer";
+    btn.style.fontSize = "16px";
+
+    btn.onclick = () => {
+      localStorage.setItem("fleetcraft_start_port", port);
+      screen.style.display = "none";
+      initializeGame();
+    };
+
+    options.appendChild(btn);
+  }
+
+  screen.style.display = "block";
+}
 
     function openRepairPanel() {
       document.getElementById("repairPanel").style.display = "block";
@@ -604,11 +619,17 @@ window.onload = () => {
       }, 1000);
     }
 
-    function initializeGame() {
-      if (!selectedStartPort) {
-        showStartSelection();
-        return;
-      }
+function initializeGame() {
+  const savedPort = localStorage.getItem("fleetcraft_start_port");
+  const coordinates = startPorts[savedPort] || [41.0082, 28.9784];
+
+  const map = L.map('map').setView(coordinates, 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap katkıcıları'
+  }).addTo(map);
+
+  L.marker(coordinates).addTo(map).bindPopup("Başlangıç Limanı: " + savedPort).openPopup();
+}
 
       currentLocation = selectedStartPort;
       unlockedShipyards.push(selectedStartPort);
