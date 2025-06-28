@@ -101,7 +101,7 @@
     <h2>🛳 Başlangıç Tersaneni Seç</h2>
     <div id="portOptions" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top:20px;"></div>
   </div>
-  </div>
+  
 
   <div id="map"></div>
 
@@ -122,7 +122,7 @@
       const options = document.getElementById("portOptions");
       options.innerHTML = "";
 
-      startPorts.forEach(port => {
+      Object.keys(startPorts).forEach(port => {
         const btn = document.createElement("button");
         btn.textContent = port;
         btn.style.padding = "10px 20px";
@@ -145,7 +145,7 @@
       screen.style.display = "block";
     }
 // 🟨 OYUN BAŞLANGICINI GÖSTEREN YENİ TANIM
-function initializeGame() {
+
   document.getElementById("map").innerText = "Oyun başlatıldı: " + localStorage.getItem("fleetcraft_start_port");
 }
 
@@ -157,9 +157,15 @@ window.onload = () => {
   } else {
     initializeGame(); // Seçim yapıldıysa oyunu başlat
   }
+     const savedPort = localStorage.getItem("fleetcraft_start_port");
+      if (!savedPort) {
+        showStartSelectionUI();
+      } else {
+        initializeGame();
+      }
 }
   </script>
-  <div id="map"></div>
+ 
 
   <div id="shipyard">
     <h3 id="shipyardTitle"></h3>
@@ -659,13 +665,7 @@ function initializeGame() {
       updateShipStatus();
     }
 
-      window.onload = () => {
-      const savedPort = localStorage.getItem("fleetcraft_start_port");
-      if (!savedPort) {
-        showStartSelectionUI();
-      } else {
-        initializeGame();
-      }
+     
     
   } else {
     initializeGame();
